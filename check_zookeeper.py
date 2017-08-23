@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #  Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -18,7 +18,7 @@
 
 Generic monitoring script that could be used with multiple platforms (Ganglia, Nagios, Cacti).
 
-It requires ZooKeeper 3.4.0 or greater. The script needs the 'mntr' 4letter word 
+It requires ZooKeeper 3.4.0 or greater. The script needs the 'mntr' 4letter word
 command (patch ZOOKEEPER-744) that was now commited to the trunk.
 The script also works with ZooKeeper 3.3.x but in a limited way.
 """
@@ -36,6 +36,7 @@ __version__ = (0, 1, 0)
 
 log = logging.getLogger()
 logging.basicConfig(level=logging.ERROR)
+
 
 class NagiosHandler(object):
 
@@ -76,89 +77,21 @@ class NagiosHandler(object):
 
         if not values:
             # Zookeeper may be down, not serving requests or we may have a bad configuration
-            print 'Critical, %s not found' % opts.key
+            print('Critical, %s not found' % opts.key)
             return 2
 
         values = ' '.join(values)
         if critical_state:
-            print 'Critical "%s" %s!|%s' % (opts.key, ', '.join(critical_state), values)
+            print('Critical "%s" %s!|%s' % (opts.key, ', '.join(critical_state), values))
             return 2
-        
         elif warning_state:
-            print 'Warning "%s" %s!|%s' % (opts.key, ', '.join(warning_state), values)
+            print('Warning "%s" %s!|%s' % (opts.key, ', '.join(warning_state), values))
             return 1
 
         else:
-            print 'Ok "%s"!|%s' % (opts.key, values)
+            print('Ok "%s"!|%s' % (opts.key, values))
             return 0
 
-class CactiHandler(object):
-
-    @classmethod
-    def register_options(cls, parser):
-        group = OptionGroup(parser, 'Cacti specific options')
-        
-        group.add_option('-l', '--leader', dest='leader', 
-            action="store_true", help="only query the cluster leader")
-
-        parser.add_option_group(group)
-
-    def analyze(self, opts, cluster_stats):
-        if opts.key is None:
-            print >>sys.stderr, 'The key name is mandatory.'
-            return 1
-
-        if opts.leader is True:
-            try:
-                leader = [x for x in cluster_stats.values() \
-                    if x.get('zk_server_state', '') == 'leader'][0] 
-
-            except IndexError:
-                print >>sys.stderr, 'No leader found.'
-                return 3
-
-            if opts.key in leader:
-                print leader[opts.key]
-                return 0
-
-            else:
-                print >>sys.stderr, 'Unknown key: "%s"' % opts.key
-                return 2
-        else:
-            for host, stats in cluster_stats.items():
-                if opts.key not in stats: 
-                    continue
-
-                host = host.replace(':', '_')
-                print '%s:%s' % (host, stats[opts.key]),
-
-
-class GangliaHandler(object):
-
-    @classmethod
-    def register_options(cls, parser):
-        group = OptionGroup(parser, 'Ganglia specific options')
-
-        group.add_option('-g', '--gmetric', dest='gmetric', 
-            default='/usr/bin/gmetric', help='ganglia gmetric binary '\
-            'location: /usr/bin/gmetric')
-
-        parser.add_option_group(group)
-
-    def call(self, *args, **kwargs):
-        subprocess.call(*args, **kwargs)
-
-    def analyze(self, opts, cluster_stats):
-        if len(cluster_stats) != 1:
-            print >>sys.stderr, 'Only allowed to monitor a single node.'
-            return 1
-
-        for host, stats in cluster_stats.items():
-            for k, v in stats.items():
-                try:
-                    self.call([opts.gmetric, '-n', k, '-v', str(int(v)), '-t', 'uint32'])
-                except (TypeError, ValueError):
-                    pass
 
 class ZooKeeperServer(object):
 
@@ -194,14 +127,13 @@ class ZooKeeperServer(object):
     def _parse(self, data):
         """ Parse the output from the 'mntr' 4letter word command """
         h = StringIO(data)
-        
         result = {}
         for line in h.readlines():
             try:
                 key, value = self._parse_line(line)
                 result[key] = value
             except ValueError:
-                pass # ignore broken lines
+                pass  # ignore broken lines
 
         return result
 
@@ -210,13 +142,13 @@ class ZooKeeperServer(object):
         h = StringIO(data)
 
         result = {}
-        
         version = h.readline()
         if version:
-            result['zk_version'] = version[version.index(':')+1:].strip()
+            result['zk_version'] = version[version.index(':') + 1:].strip()
 
         # skip all lines until we find the empty one
-        while h.readline().strip(): pass
+        while h.readline().strip():
+            pass
 
         for line in h.readlines():
             m = re.match('Latency min/avg/max: (\d+)/(\d+)/(\d+)', line)
@@ -251,7 +183,7 @@ class ZooKeeperServer(object):
                 result['zk_znode_count'] = int(m.group(1))
                 continue
 
-        return result 
+        return result
 
     def _parse_line(self, line):
         try:
@@ -269,6 +201,7 @@ class ZooKeeperServer(object):
 
         return key, value
 
+
 def main():
     opts, args = parse_cli()
 
@@ -284,6 +217,7 @@ def main():
 
     return handler.analyze(opts, cluster_stats)
 
+
 def create_handler(name):
     """ Return an instance of a platform specific analyzer """
     try:
@@ -291,18 +225,21 @@ def create_handler(name):
     except KeyError:
         return None
 
+
 def get_all_handlers():
     """ Get a list containing all the platform specific analyzers """
-    return [NagiosHandler, CactiHandler, GangliaHandler]
+    return [NagiosHandler]
+
 
 def dump_stats(cluster_stats):
     """ Dump cluster statistics in an user friendly format """
     for server, stats in cluster_stats.items():
-        print 'Server:', server
+        print('Server:', server)
 
         for key, value in stats.items():
-            print "%30s" % key, ' ', value
+            print("%30s" % key, ' ', value)
         print
+
 
 def get_cluster_stats(servers):
     """ Get stats for all the servers in the cluster """
@@ -312,15 +249,14 @@ def get_cluster_stats(servers):
             zk = ZooKeeperServer(host, port)
             stats["%s:%s" % (host, port)] = zk.get_stats()
 
-        except socket.error, e:
-            # ignore because the cluster can still work even 
+        except socket.error as e:
+            # ignore because the cluster can still work even
             # if some servers fail completely
 
             # this error should be also visible in a variable
             # exposed by the server in the statistics
 
-            logging.info('unable to connect to server '\
-                '"%s" on port "%s"' % (host, port))
+            logging.info('unable to connect to server "%s" on port "%s"' % (host, port))
 
     return stats
 
@@ -332,11 +268,9 @@ def get_version():
 def parse_cli():
     parser = OptionParser(usage='./check_zookeeper.py <options>', version=get_version())
 
-    parser.add_option('-s', '--servers', dest='servers', 
-        help='a list of SERVERS', metavar='SERVERS')
+    parser.add_option('-s', '--servers', dest='servers', help='a list of SERVERS', metavar='SERVERS')
 
-    parser.add_option('-o', '--output', dest='output', 
-        help='output HANDLER: nagios, ganglia, cacti', metavar='HANDLER')
+    parser.add_option('-o', '--output', dest='output', help='output HANDLER: nagios', metavar='HANDLER')
 
     parser.add_option('-k', '--key', dest='key')
 
@@ -355,4 +289,3 @@ def parse_cli():
 
 if __name__ == '__main__':
     sys.exit(main())
-
