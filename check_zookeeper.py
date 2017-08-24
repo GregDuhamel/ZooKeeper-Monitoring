@@ -1,41 +1,36 @@
-#! /usr/bin/env python3
-#  Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-""" Check Zookeeper Cluster
-
-Generic monitoring script that could be used with multiple platforms (Ganglia, Nagios, Cacti).
-
-It requires ZooKeeper 3.4.0 or greater. The script needs the 'mntr' 4letter word
-command (patch ZOOKEEPER-744) that was now commited to the trunk.
-The script also works with ZooKeeper 3.3.x but in a limited way.
-"""
-
+#! /usr/bin/env python3 coding=utf-8
 import sys
 import socket
 import logging
 import re
-import subprocess
+import io
 
-from StringIO import StringIO
 from optparse import OptionParser, OptionGroup
+from logging.handlers import RotatingFileHandler
 
 __version__ = (0, 1, 0)
 
-log = logging.getLogger()
-logging.basicConfig(level=logging.ERROR)
+# création de l'objet logger qui va nous servir à écrire dans les logs
+logger = logging.getLogger()
+# on met le niveau du logger à DEBUG, comme ça il écrit tout
+logger.setLevel(logging.DEBUG)
+# création d'un formateur qui va ajouter le temps, le niveau
+# de chaque message quand on écrira un message dans le log
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+# création d'un handler qui va rediriger une écriture du log vers
+# un fichier en mode 'append', avec 1 backup et une taille max de 1Mo
+# noinspection PyArgumentEqualDefault
+file_handler = RotatingFileHandler('check_zookeeper.log', 'a', 1000000, 1)
+# on lui met le niveau sur DEBUG, on lui dit qu'il doit utiliser le formateur
+# créé précédement et on ajoute ce handler au logger
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+# création d'un second handler qui va rediriger chaque écriture de log
+# sur la console
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+logger.addHandler(stream_handler)
 
 
 class NagiosHandler(object):
@@ -49,7 +44,8 @@ class NagiosHandler(object):
 
         parser.add_option_group(group)
 
-    def analyze(self, opts, cluster_stats):
+    @staticmethod
+    def analyze(opts, cluster_stats):
         try:
             warning = int(opts.warning)
             critical = int(opts.critical)
@@ -72,7 +68,7 @@ class NagiosHandler(object):
                 if warning >= value > critical or warning <= value < critical:
                     warning_state.append(host)
 
-                elif (warning < critical and critical <= value) or (warning > critical and critical >= value):
+                elif (warning < critical <= value) or (warning > critical >= value):
                     critical_state.append(host)
 
         if not values:
@@ -108,7 +104,8 @@ class ZooKeeperServer(object):
             data = self._send_cmd('stat')
             return self._parse_stat(data)
 
-    def _create_socket(self):
+    @staticmethod
+    def _create_socket():
         return socket.socket()
 
     def _send_cmd(self, cmd):
@@ -126,7 +123,7 @@ class ZooKeeperServer(object):
 
     def _parse(self, data):
         """ Parse the output from the 'mntr' 4letter word command """
-        h = StringIO(data)
+        h = io.StringIO(data)
         result = {}
         for line in h.readlines():
             try:
@@ -137,9 +134,10 @@ class ZooKeeperServer(object):
 
         return result
 
-    def _parse_stat(self, data):
+    @staticmethod
+    def _parse_stat(data):
         """ Parse the output from the 'stat' 4letter word command """
-        h = StringIO(data)
+        h = io.StringIO(data)
 
         result = {}
         version = h.readline()
@@ -185,7 +183,8 @@ class ZooKeeperServer(object):
 
         return result
 
-    def _parse_line(self, line):
+    @staticmethod
+    def _parse_line(line):
         try:
             key, value = map(str.strip, line.split('\t'))
         except ValueError:
@@ -212,7 +211,7 @@ def main():
 
     handler = create_handler(opts.output)
     if handler is None:
-        log.error('undefined handler: %s' % opts.output)
+        logger.error('undefined handler: %s' % opts.output)
         sys.exit(1)
 
     return handler.analyze(opts, cluster_stats)
@@ -256,7 +255,7 @@ def get_cluster_stats(servers):
             # this error should be also visible in a variable
             # exposed by the server in the statistics
 
-            logging.info('unable to connect to server "%s" on port "%s"' % (host, port))
+            logger.info('unable to connect to server "%s" on port "%s"' % (host, port))
 
     return stats
 
@@ -284,7 +283,7 @@ def parse_cli():
 
     opts.servers = [s.split(':') for s in opts.servers.split(',')]
 
-    return (opts, args)
+    return opts, args
 
 
 if __name__ == '__main__':
