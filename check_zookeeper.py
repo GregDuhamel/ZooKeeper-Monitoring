@@ -20,7 +20,7 @@ formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
 # création d'un handler qui va rediriger une écriture du log vers
 # un fichier en mode 'append', avec 1 backup et une taille max de 1Mo
 # noinspection PyArgumentEqualDefault
-file_handler = RotatingFileHandler('check_zookeeper.log', 'a', 1000000, 1)
+file_handler = RotatingFileHandler('/tmp/check_zookeeper.log', 'a', 1000000, 1)
 # on lui met le niveau sur DEBUG, on lui dit qu'il doit utiliser le formateur
 # créé précédement et on ajoute ce handler au logger
 file_handler.setLevel(logging.DEBUG)
@@ -34,7 +34,6 @@ logger.addHandler(stream_handler)
 
 
 class NagiosHandler(object):
-
     @classmethod
     def register_options(cls, parser):
         group = OptionGroup(parser, 'Nagios specific options')
@@ -51,11 +50,11 @@ class NagiosHandler(object):
             critical = int(opts.critical)
 
         except (TypeError, ValueError):
-            print >>sys.stderr, 'Invalid values for "warning" and "critical".'
+            logger.error('Invalid values for "warning" and "critical"')
             return 2
 
         if opts.key is None:
-            print >>sys.stderr, 'You should specify a key name.'
+            logger.error('You should specify a key name.')
             return 2
 
         warning_state, critical_state, values = [], [], []
@@ -73,24 +72,22 @@ class NagiosHandler(object):
 
         if not values:
             # Zookeeper may be down, not serving requests or we may have a bad configuration
-            print('Critical, %s not found' % opts.key)
+            logger.error('Critical, %s not found', opts.key)
             return 2
 
         values = ' '.join(values)
         if critical_state:
-            print('Critical "%s" %s!|%s' % (opts.key, ', '.join(critical_state), values))
+            logger.error('Critical "%s" %s!|%s' % (opts.key, ', '.join(critical_state), values))
             return 2
         elif warning_state:
-            print('Warning "%s" %s!|%s' % (opts.key, ', '.join(warning_state), values))
+            logger.warning('Warning "%s" %s!|%s' % (opts.key, ', '.join(warning_state), values))
             return 1
-
         else:
-            print('Ok "%s"!|%s' % (opts.key, values))
+            logger.info('Ok "%s"!|%s' % (opts.key, values))
             return 0
 
 
 class ZooKeeperServer(object):
-
     def __init__(self, host='localhost', port='2181', timeout=1):
         self._address = (host, int(port))
         self._timeout = timeout
@@ -114,7 +111,8 @@ class ZooKeeperServer(object):
         s.settimeout(self._timeout)
 
         s.connect(self._address)
-        s.send(cmd)
+        buf = cmd.encode()
+        s.send(buf)
 
         data = s.recv(2048)
         s.close()
@@ -123,7 +121,7 @@ class ZooKeeperServer(object):
 
     def _parse(self, data):
         """ Parse the output from the 'mntr' 4letter word command """
-        h = io.StringIO(data)
+        h = io.StringIO(data.decode())
         result = {}
         for line in h.readlines():
             try:
@@ -137,7 +135,7 @@ class ZooKeeperServer(object):
     @staticmethod
     def _parse_stat(data):
         """ Parse the output from the 'stat' 4letter word command """
-        h = io.StringIO(data)
+        h = io.StringIO(data.decode())
 
         result = {}
         version = h.readline()
@@ -237,7 +235,7 @@ def dump_stats(cluster_stats):
 
         for key, value in stats.items():
             print("%30s" % key, ' ', value)
-        print
+        print()
 
 
 def get_cluster_stats(servers):
@@ -255,7 +253,7 @@ def get_cluster_stats(servers):
             # this error should be also visible in a variable
             # exposed by the server in the statistics
 
-            logger.info('unable to connect to server "%s" on port "%s"' % (host, port))
+            logger.info('unable to connect to server "%s" on port "%s" due to "%s"' % (host, port, e))
 
     return stats
 
@@ -282,6 +280,8 @@ def parse_cli():
         parser.error('The list of servers is mandatory')
 
     opts.servers = [s.split(':') for s in opts.servers.split(',')]
+
+    logger.debug("Actual list of server is %s", opts.servers)
 
     return opts, args
 
