@@ -1,4 +1,5 @@
-#! /usr/bin/env python3 coding=utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import sys
 import socket
 import logging
@@ -28,12 +29,12 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 # création d'un second handler qui va rediriger chaque écriture de log
 # sur la console
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler(stream=sys.stdout)
+stream_handler.setLevel(logging.INFO)
 logger.addHandler(stream_handler)
 
 
-class NagiosHandler(object):
+class NagiosHandler():
     @classmethod
     def register_options(cls, parser):
         group = OptionGroup(parser, 'Nagios specific options')
@@ -62,7 +63,7 @@ class NagiosHandler(object):
             if opts.key in stats:
 
                 value = stats[opts.key]
-                values.append('%s=%s;%s;%s' % (host, value, warning, critical))
+                values.append('%s' % value)
 
                 if warning >= value > critical or warning <= value < critical:
                     warning_state.append(host)
@@ -77,17 +78,17 @@ class NagiosHandler(object):
 
         values = ' '.join(values)
         if critical_state:
-            logger.error('Critical "%s" %s!|%s' % (opts.key, ', '.join(critical_state), values))
+            logger.error('CRITICAL - "%s" %s : %s' % (opts.key, ', '.join(critical_state), values))
             return 2
         elif warning_state:
-            logger.warning('Warning "%s" %s!|%s' % (opts.key, ', '.join(warning_state), values))
+            logger.warning('WARNING - "%s" %s : %s' % (opts.key, ', '.join(warning_state), values))
             return 1
         else:
-            logger.info('Ok "%s"!|%s' % (opts.key, values))
+            logger.info('OK - "%s" : %s' % (opts.key, values))
             return 0
 
 
-class ZooKeeperServer(object):
+class ZooKeeperServer():
     def __init__(self, host='localhost', port='2181', timeout=1):
         self._address = (host, int(port))
         self._timeout = timeout
