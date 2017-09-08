@@ -34,7 +34,7 @@ stream_handler.setLevel(logging.INFO)
 logger.addHandler(stream_handler)
 
 
-class NagiosHandler():
+class NagiosHandler:
     @classmethod
     def register_options(cls, parser):
         group = OptionGroup(parser, 'Nagios specific options')
@@ -68,7 +68,7 @@ class NagiosHandler():
                 if warning >= value > critical or warning <= value < critical:
                     warning_state.append(host)
 
-                elif (warning < critical <= value) or (warning > critical >= value):
+                elif warning < critical <= value or warning > critical >= value:
                     critical_state.append(host)
 
         if not values:
@@ -88,7 +88,7 @@ class NagiosHandler():
             return 0
 
 
-class ZooKeeperServer():
+class ZooKeeperServer:
     def __init__(self, host='localhost', port='2181', timeout=1):
         self._address = (host, int(port))
         self._timeout = timeout

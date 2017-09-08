@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Kazoo Zookeeper Client"""
 from collections import defaultdict, deque
@@ -66,16 +66,15 @@ from kazoo.recipe.party import Party, ShallowParty
 from kazoo.recipe.queue import Queue, LockingQueue
 from kazoo.recipe.watchers import ChildrenWatch, DataWatch
 
-
 string_types = six.string_types
 bytes_types = (six.binary_type,)
 
 LOST_STATES = (KeeperState.EXPIRED_SESSION, KeeperState.AUTH_FAILED,
                KeeperState.CLOSED)
+# noinspection Annotator
 ENVI_VERSION = re.compile('([\d\.]*).*', re.DOTALL)
 ENVI_VERSION_KEY = 'zookeeper.version'
 log = logging.getLogger(__name__)
-
 
 _RETRY_COMPAT_DEFAULTS = dict(
     max_retries=None,
@@ -104,6 +103,7 @@ class KazooClient(object):
     :class:`~kazoo.protocol.states.WatchedEvent` instance.
 
     """
+
     def __init__(self, hosts='127.0.0.1:2181',
                  timeout=10.0, client_id=None, handler=None,
                  default_acl=None, auth_data=None, read_only=None,
@@ -272,6 +272,7 @@ class KazooClient(object):
 
         def _retry(*args, **kwargs):
             return self._retry.copy()(*args, **kwargs)
+
         self.retry = _retry
 
         self.Barrier = partial(Barrier, self)
@@ -346,7 +347,7 @@ class KazooClient(object):
         :rtype: tuple
         """
         if self._live.is_set():
-            return (self._session_id, self._session_passwd)
+            return self._session_id, self._session_passwd
         return None
 
     @property
@@ -665,6 +666,7 @@ class KazooClient(object):
         .. versionadded:: 0.5
 
         """
+
         def _try_fetch():
             data = self.command(b'envi')
             data_parsed = {}
@@ -867,8 +869,7 @@ class KazooClient(object):
 
         if not isinstance(path, string_types):
             raise TypeError("Invalid type for 'path' (string expected)")
-        if acl and (isinstance(acl, ACL) or
-                    not isinstance(acl, (tuple, list))):
+        if acl and (isinstance(acl, ACL) or not isinstance(acl, (tuple, list))):
             raise TypeError("Invalid type for 'acl' (acl must be a tuple/list"
                             " of ACL's")
         if value is not None and not isinstance(value, bytes_types):
@@ -1462,6 +1463,7 @@ class TransactionRequest(object):
         Requires Zookeeper 3.4+
 
     """
+
     def __init__(self, client):
         self.client = client
         self.operations = []
@@ -1526,7 +1528,7 @@ class TransactionRequest(object):
         if not isinstance(version, int):
             raise TypeError("Invalid type for 'version' (int expected)")
         self._add(SetData(_prefix_root(self.client.chroot, path), value,
-                  version))
+                          version))
 
     def check(self, path, version):
         """Add a Check Version to the transaction.
@@ -1540,7 +1542,7 @@ class TransactionRequest(object):
         if not isinstance(version, int):
             raise TypeError("Invalid type for 'version' (int expected)")
         self._add(CheckVersion(_prefix_root(self.client.chroot, path),
-                  version))
+                               version))
 
     def commit_async(self):
         """Commit the transaction asynchronously.
