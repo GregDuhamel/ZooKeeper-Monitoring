@@ -56,7 +56,7 @@ class ZKClient:
             self.zk.start(timeout=self.timeout)
         except KazooTimeoutError:
             logger.error("Receive timeout during connection to %s", self.hosts)
-            sys.exit(1)
+            sys.exit(2)
 
     def disconnect(self):
         self.zk.stop()
@@ -66,43 +66,43 @@ class ZKClient:
             self.path = self.zk.create(path=self.path, value=bytes(2), ephemeral=True, sequence=True, makepath=True)
         except NodeExistsError:
             logger.error('path %s already exists. Exiting.', self.path)
-            sys.exit(1)
+            sys.exit(2)
         except NoNodeError:
             logger.error("Can't find parent node in %s", self.path)
-            sys.exit(1)
+            sys.exit(2)
         except NoChildrenForEphemeralsError:
             logger.error("Can't create children on Ephemeral node. Please review your path %s", self.path)
-            sys.exit(1)
+            sys.exit(2)
         except ZookeeperError:
             logger.error(traceback.print_exc())
-            sys.exit(1)
+            sys.exit(2)
 
     def get(self):
         try:
             self.getvalue = self.zk.get(path=self.path)
         except NoNodeError:
             logger.error("path %s doesn't exists.", self.path)
-            sys.exit(1)
+            sys.exit(2)
         except ZookeeperError:
             logger.error(traceback.print_exc())
-            sys.exit(1)
+            sys.exit(2)
 
         if self.getvalue[0].decode('utf-8') != 'OK':
             logger.error("Can't retrieve data or data has not expected value %s", self.getvalue[0].decode('utf-8'))
-            sys.exit(1)
+            sys.exit(2)
 
     def set(self):
         try:
             self.zk.set(path=self.path, value='OK'.encode())
         except BadVersionError:
             logger.error("Version mismatch while writing OK to znode %s", self.path)
-            sys.exit(1)
+            sys.exit(2)
         except NoNodeError:
             logger.error("path %s doesn't exists.", self.path)
-            sys.exit(1)
+            sys.exit(2)
         except ZookeeperError:
             logger.error(traceback.print_exc())
-            sys.exit(1)
+            sys.exit(2)
 
 
 def get_version():
@@ -139,7 +139,7 @@ def main():
 
     zkc.disconnect()
 
-    print("OK - SUCCESSFULLY WRITE in :", zkc.hosts,file=sys.stdout,flush=True)
+    print("OK - SUCCESSFULLY WRITE in :", zkc.hosts, file=sys.stdout, flush=True)
 
 
 if __name__ == '__main__':
